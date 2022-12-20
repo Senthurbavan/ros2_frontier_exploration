@@ -7,9 +7,12 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(nav2_common REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(nav2_util REQUIRED)
 
 add_library(explore_frontier_test SHARED
@@ -23,8 +26,10 @@ target_include_directories(explore_frontier_test PRIVATE
 
 ament_target_dependencies(explore_frontier_test
   "rclcpp"
+  "rclcpp_action"
   "rclcpp_lifecycle"
   "rclcpp_components"
+  "nav2_msgs"
   "nav2_util"
 )
 
