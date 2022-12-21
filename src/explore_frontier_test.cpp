@@ -21,21 +21,6 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_configure(
 
   timer_dur = get_parameter("timer_duration").as_int();
 
-  // callback_group_ = create_callback_group(
-  //   rclcpp::CallbackGroupType::MutuallyExclusive,
-  //   false
-  // );
-
-  // timer_callback_group_ = create_callback_group(
-  //   rclcpp::CallbackGroupType::MutuallyExclusive,
-  //   false
-  // );
-
-  // callback_group_executor_.add_callback_group(callback_group_, 
-  //   get_node_base_interface());
-  // timer_callback_group_executor_.add_callback_group(timer_callback_group_, 
-  //   get_node_base_interface());
-
   nav_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(
     get_node_base_interface(),
     get_node_graph_interface(),
@@ -117,9 +102,6 @@ void ExploreFrontierTest::clientTimerCallback()
   future_goal_handle_ = nav_to_pose_client_->async_send_goal(client_goal, 
                                                               send_goal_options);
   RCLCPP_INFO(get_logger(), "Goal sent to the server");
-  // callback_group_executor_.spin_until_future_complete(future_goal_handle_);
-  // rclcpp::shutdown();
-  // callback_group_executor_.spin_some();
 }
 
 void ExploreFrontierTest::resultCallback(
