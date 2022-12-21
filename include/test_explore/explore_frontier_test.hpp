@@ -43,8 +43,9 @@ namespace test_explore
     rclcpp::TimerBase::SharedPtr client_timer_;
 
     // Action client
-    rclcpp::CallbackGroup::SharedPtr callback_group_;
-    rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
+    rclcpp::CallbackGroup::SharedPtr callback_group_, timer_callback_group_;
+    rclcpp::executors::SingleThreadedExecutor callback_group_executor_, 
+      timer_callback_group_executor_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav_to_pose_client_;
     std::shared_future<rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr> 
       future_goal_handle_;
