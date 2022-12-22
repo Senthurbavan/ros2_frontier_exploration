@@ -19,9 +19,9 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_configure(
 {
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
 
-  timer_dur = get_parameter("timer_duration").as_int();
+  this->timer_dur = get_parameter("timer_duration").as_int();
 
-  nav_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(
+  this->nav_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(
     get_node_base_interface(),
     get_node_graph_interface(),
     get_node_logging_interface(),
@@ -38,7 +38,7 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_activate(
   RCLCPP_INFO(get_logger(), "\n -- Activating -- \n");
   createBond();
 
-  client_timer_ = create_wall_timer(
+  this->client_timer_ = create_wall_timer(
     std::chrono::seconds(timer_dur), 
     std::bind(&ExploreFrontierTest::clientTimerCallback, this)/*, timer_callback_group_*/
   );
@@ -51,7 +51,7 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_deactivate(
 {
   RCLCPP_INFO(get_logger(), "\n -- Deactivating -- \n");
 
-  client_timer_->cancel();
+  this->client_timer_->cancel();
 
   destroyBond();
   return nav2_util::CallbackReturn::SUCCESS;
@@ -61,7 +61,7 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_cleanup(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Cleaning up -- \n");
-  nav_to_pose_client_.reset();
+  this->nav_to_pose_client_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -77,7 +77,7 @@ void ExploreFrontierTest::clientTimerCallback()
 {
   RCLCPP_INFO(get_logger(), "timer callback");
   
-  client_timer_->cancel();
+  this->client_timer_->cancel();
 
   NavigateToPose::Goal client_goal;
 
