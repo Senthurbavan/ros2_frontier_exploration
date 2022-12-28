@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>test_explore</name>
+  <name>explore_frontier</name>
   <version>0.0.0</version>
-  <description>Test package for frontier exploration</description>
+  <description>Package for frontier exploration</description>
   <maintainer email="senthu@todo.todo">senthu</maintainer>
   <license>License declaration</license>
 

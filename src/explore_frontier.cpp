@@ -1,20 +1,20 @@
-#include "test_explore/explore_frontier_test.hpp"
+#include "explore_frontier/explore_frontier.hpp"
 
-namespace test_explore
+namespace explore_frontier
 {
 
-ExploreFrontierTest::ExploreFrontierTest(const rclcpp::NodeOptions &options)
-  : nav2_util::LifecycleNode("explore_frontier_test", "", options)
+ExploreFrontier::ExploreFrontier(const rclcpp::NodeOptions &options)
+  : nav2_util::LifecycleNode("explore_frontier", "", options)
 {
   RCLCPP_INFO(get_logger(), "\n -- Creating -- \n");
   declare_parameter("timer_duration", 10);
 }
 
-ExploreFrontierTest::~ExploreFrontierTest()
+ExploreFrontier::~ExploreFrontier()
 {
 }
 
-nav2_util::CallbackReturn ExploreFrontierTest::on_configure(
+nav2_util::CallbackReturn ExploreFrontier::on_configure(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
@@ -32,7 +32,7 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_configure(
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn ExploreFrontierTest::on_activate(
+nav2_util::CallbackReturn ExploreFrontier::on_activate(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Activating -- \n");
@@ -40,13 +40,13 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_activate(
 
   this->client_timer_ = create_wall_timer(
     std::chrono::seconds(timer_dur), 
-    std::bind(&ExploreFrontierTest::clientTimerCallback, this)/*, timer_callback_group_*/
+    std::bind(&ExploreFrontier::clientTimerCallback, this)/*, timer_callback_group_*/
   );
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn ExploreFrontierTest::on_deactivate(
+nav2_util::CallbackReturn ExploreFrontier::on_deactivate(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Deactivating -- \n");
@@ -57,7 +57,7 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_deactivate(
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn ExploreFrontierTest::on_cleanup(
+nav2_util::CallbackReturn ExploreFrontier::on_cleanup(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Cleaning up -- \n");
@@ -66,14 +66,14 @@ nav2_util::CallbackReturn ExploreFrontierTest::on_cleanup(
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn ExploreFrontierTest::on_shutdown(
+nav2_util::CallbackReturn ExploreFrontier::on_shutdown(
   const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "\n -- Shutting down -- \n");
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-void ExploreFrontierTest::clientTimerCallback()
+void ExploreFrontier::clientTimerCallback()
 {
   RCLCPP_INFO(get_logger(), "timer callback");
   
@@ -94,17 +94,17 @@ void ExploreFrontierTest::clientTimerCallback()
 
   auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
   send_goal_options.result_callback = std::bind(
-    &ExploreFrontierTest::resultCallback, this, std::placeholders::_1
+    &ExploreFrontier::resultCallback, this, std::placeholders::_1
   );
   send_goal_options.goal_response_callback = std::bind(
-    &ExploreFrontierTest::goalResponseCallback, this, std::placeholders::_1
+    &ExploreFrontier::goalResponseCallback, this, std::placeholders::_1
   );
   future_goal_handle_ = nav_to_pose_client_->async_send_goal(client_goal, 
                                                               send_goal_options);
   RCLCPP_INFO(get_logger(), "Goal sent to the server");
 }
 
-void ExploreFrontierTest::resultCallback(
+void ExploreFrontier::resultCallback(
   const GoalHandleNavigateToPose::WrappedResult & result)
 {
   RCLCPP_INFO(get_logger(), "Result callback");
@@ -127,7 +127,7 @@ void ExploreFrontierTest::resultCallback(
   RCLCPP_INFO(get_logger(), "navigate_to_pose result received : %s", code_str.c_str());
 }
 
-void ExploreFrontierTest::goalResponseCallback(
+void ExploreFrontier::goalResponseCallback(
   const GoalHandleNavigateToPose::SharedPtr & goal_handle)
 {
   RCLCPP_INFO(get_logger(), "Goal Response Callback");
@@ -138,8 +138,8 @@ void ExploreFrontierTest::goalResponseCallback(
   }
 }
 
-} // namespace test_explore
+} // namespace explore_frontier
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(test_explore::ExploreFrontierTest)
+RCLCPP_COMPONENTS_REGISTER_NODE(explore_frontier::ExploreFrontier)

@@ -7,19 +7,19 @@
 #include "nav2_util/node_utils.hpp"
 
 
-namespace test_explore
+namespace explore_frontier
 {
 
-  class ExploreFrontierTest : public nav2_util::LifecycleNode
+  class ExploreFrontier : public nav2_util::LifecycleNode
   {
   public:
 
     using NavigateToPose = nav2_msgs::action::NavigateToPose;
     using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPose>;
 
-    explicit ExploreFrontierTest(
+    explicit ExploreFrontier(
       const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
-    ~ExploreFrontierTest();
+    ~ExploreFrontier();
 
   protected:
     nav2_util::CallbackReturn on_configure(

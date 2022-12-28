@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(test_explore)
+project(explore_frontier)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -15,16 +15,18 @@ find_package(rclcpp_components REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav2_util REQUIRED)
 
-add_library(explore_frontier_test SHARED
-  src/explore_frontier_test.cpp
+set(library_name explore_frontier_core)
+
+add_library(${library_name} SHARED
+  src/explore_frontier.cpp
 )
 
-target_include_directories(explore_frontier_test PRIVATE
+target_include_directories(${library_name} PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(explore_frontier_test
+ament_target_dependencies(${library_name}
   "rclcpp"
   "rclcpp_action"
   "rclcpp_lifecycle"
@@ -33,9 +35,9 @@ ament_target_dependencies(explore_frontier_test
   "nav2_util"
 )
 
-rclcpp_components_register_node(explore_frontier_test PLUGIN "test_explore::ExploreFrontierTest" EXECUTABLE explore_frontier)
+rclcpp_components_register_nodes(${library_name} "explore_frontier::ExploreFrontier")
 
-install( TARGETS explore_frontier_test
+install( TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
