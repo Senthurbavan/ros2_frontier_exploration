@@ -14,11 +14,13 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav2_util REQUIRED)
+find_package(nav2_costmap_2d REQUIRED)
 
 set(library_name explore_frontier_core)
 
 add_library(${library_name} SHARED
   src/explore_frontier.cpp
+  src/astar.cpp
 )
 
 target_include_directories(${library_name} PRIVATE
@@ -34,6 +36,7 @@ ament_target_dependencies(${library_name}
   "nav2_msgs"
   "nav2_util"
   "geometry_msgs"
+  "nav2_costmap_2d"
 )
 
 rclcpp_components_register_nodes(${library_name} "explore_frontier::ExploreFrontier")
