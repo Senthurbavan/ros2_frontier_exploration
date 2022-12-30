@@ -33,6 +33,7 @@ ament_target_dependencies(${library_name}
   "rclcpp_components"
   "nav2_msgs"
   "nav2_util"
+  "geometry_msgs"
 )
 
 rclcpp_components_register_nodes(${library_name} "explore_frontier::ExploreFrontier")
