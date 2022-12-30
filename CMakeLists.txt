@@ -21,6 +21,7 @@ set(library_name explore_frontier_core)
 add_library(${library_name} SHARED
   src/explore_frontier.cpp
   src/astar.cpp
+  src/costmap_client.cpp
 )
 
 target_include_directories(${library_name} PRIVATE
@@ -37,6 +38,10 @@ ament_target_dependencies(${library_name}
   "nav2_util"
   "geometry_msgs"
   "nav2_costmap_2d"
+  "map_msgs"
+  "nav_msgs"
+  "tf2"
+  "tf2_ros"
 )
 
 rclcpp_components_register_nodes(${library_name} "explore_frontier::ExploreFrontier")
