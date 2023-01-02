@@ -22,6 +22,7 @@ add_library(${library_name} SHARED
   src/explore_frontier.cpp
   src/astar.cpp
   src/costmap_client.cpp
+  src/frontier_search.cpp
 )
 
 target_include_directories(${library_name} PRIVATE
