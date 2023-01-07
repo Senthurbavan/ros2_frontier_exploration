@@ -54,6 +54,8 @@ Costmap2DClient::Costmap2DClient(
   auto node = parent.lock();
   logger_ = node->get_logger();
 
+  RCLCPP_DEBUG(logger_, "\n\n -- inside Costmap2DClient constructor -- \n\n");
+
   node->declare_parameter("costmap_topic", rclcpp::ParameterValue("costmap"));
   node->get_parameter("costmap_topic", costmap_topic_);
 
@@ -166,6 +168,7 @@ void Costmap2DClient::updatePartialMap(
 
 bool Costmap2DClient::getRobotPose(geometry_msgs::msg::PoseStamped global_pose) const
 {
+  RCLCPP_DEBUG(logger_, "inside getRobotPose");
   return nav2_util::getCurrentPose(
     global_pose, *tf_buffer_, global_frame_, robot_base_frame_, transform_tolerance_);  
 }

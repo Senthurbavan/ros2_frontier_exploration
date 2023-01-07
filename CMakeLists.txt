@@ -43,6 +43,8 @@ ament_target_dependencies(${library_name}
   "nav_msgs"
   "tf2"
   "tf2_ros"
+  "std_msgs"
+  "visualization_msgs"
 )
 
 rclcpp_components_register_nodes(${library_name} "explore_frontier::ExploreFrontier")
