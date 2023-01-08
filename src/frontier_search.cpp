@@ -33,7 +33,8 @@ FrontierSearch::FrontierSearch(const nav2_util::LifecycleNode::WeakPtr &parent,
 std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::msg::Point position)
 {
   std::vector<Frontier> frontier_list;
-  RCLCPP_DEBUG(logger_, "searchFrom start");
+  // RCLCPP_INFO(logger_, "searchFrom start in costmap of %d, %d size", 
+  //   costmap_->getSizeInCellsX(), costmap_->getSizeInCellsY());
 
   // Sanity check that robot is inside costmap bounds before searching
   unsigned int mx, my;

@@ -69,7 +69,8 @@ public:
    * @param tf_listener Will be used for transformation of robot pose.
    */
   Costmap2DClient(
-    const nav2_util::LifecycleNode::WeakPtr &parent
+    const nav2_util::LifecycleNode::WeakPtr &parent,
+    std::shared_ptr<tf2_ros::Buffer> &tf_buffer
   );
 
   /**
@@ -125,11 +126,8 @@ protected:
 
   nav2_costmap_2d::Costmap2D costmap_;
 
-  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_; ///< @brief Used for transforming
-                                           /// point clouds
-
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   
   std::string costmap_topic_, costmap_updates_topic_;
@@ -140,7 +138,7 @@ protected:
 
 private:
   // The Logger object for logging
-  rclcpp::Logger logger_{rclcpp::get_logger("nav2_costmap_2d")};
+  rclcpp::Logger logger_{rclcpp::get_logger("explore_frontier")};
   // will be unsubscribed at destruction
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::Subscription<map_msgs::msg::OccupancyGridUpdate>

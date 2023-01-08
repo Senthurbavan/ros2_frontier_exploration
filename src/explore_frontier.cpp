@@ -8,7 +8,7 @@ ExploreFrontier::ExploreFrontier(const rclcpp::NodeOptions &options)
     // costmap_client_(shared_from_this()
 {
   RCLCPP_INFO(get_logger(), "\n -- Creating -- \n");
-  declare_parameter("timer_duration", 1);
+  declare_parameter("timer_duration", 5);
 }
 
 
@@ -25,13 +25,21 @@ nav2_util::CallbackReturn ExploreFrontier::on_configure(
   clock_ = this->get_clock();
 
   this->timer_dur = get_parameter("timer_duration").as_int();
-  RCLCPP_INFO(get_logger(), "timer_duration is: %ld", this->timer_dur);
 
   terminate_timeout_ = std::make_shared<rclcpp::Duration>(
     rclcpp::Duration::from_seconds(30));
 
   progress_timeout_ = std::make_shared<rclcpp::Duration>(
     rclcpp::Duration::from_seconds(30));
+
+  // Create the transform-related objects
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    callback_group_);
+  tf_buffer_->setCreateTimerInterface(timer_interface);
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   marker_array_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
     "frontiers", 10);
@@ -45,12 +53,9 @@ nav2_util::CallbackReturn ExploreFrontier::on_configure(
     get_node_waitables_interface(),
     "navigate_to_pose"/*, callback_group_*/
   );
-  RCLCPP_INFO(get_logger(), "costmap_client_ not set non-empty: %s", costmap_client_?"T":"F");
-  costmap_client_ = std::make_unique<Costmap2DClient>(shared_from_this());
-  RCLCPP_INFO(get_logger(), "costmap_client_ set non-empty: %s", costmap_client_?"T":"F");
+  costmap_client_ = std::make_unique<Costmap2DClient>(shared_from_this(), tf_buffer_);
   search_ = std::make_unique<FrontierSearch>(shared_from_this(),
     costmap_client_->getCostmap(), 1.0, 1.0, 0.75);
-  RCLCPP_INFO(get_logger(), "FrontierSearch ready");
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -65,6 +70,29 @@ nav2_util::CallbackReturn ExploreFrontier::on_activate(
 
   this->marker_array_publisher_->on_activate();
   this->f_path_publisher_->on_activate();
+
+  // First, make sure that the transform between the robot base frame
+  // and the global frame is available
+
+  std::string tf_error;
+
+  RCLCPP_INFO(get_logger(), "Checking transform");
+  rclcpp::Rate r(2);
+  while (rclcpp::ok() & 
+    !tf_buffer_->canTransform(
+      "map", "base_footprint", tf2::TimePointZero, &tf_error))
+  {
+    RCLCPP_INFO(
+      get_logger(), "Timed out waiting for transform from %s to %s"
+      " to become available, tf error: %s",
+      "base_footprint", "map", tf_error.c_str());
+
+    // The error string will accumulate and errors will typically be the same, so the last
+    // will do for the warning above. Reset the string here to avoid accumulation
+    tf_error.clear();
+    r.sleep();
+  }
+  
 
   this->client_timer_ = create_wall_timer(
     std::chrono::seconds(this->timer_dur), 
@@ -102,6 +130,9 @@ nav2_util::CallbackReturn ExploreFrontier::on_cleanup(
   this->marker_array_publisher_.reset();
   this->f_path_publisher_.reset();
 
+  tf_listener_.reset();
+  tf_buffer_.reset();
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -118,8 +149,6 @@ void ExploreFrontier::resultCallback(
   const GoalHandleNavigateToPose::WrappedResult & result,
   const geometry_msgs::msg::Point& frontier_goal)
 {
-  RCLCPP_INFO(get_logger(), "Result callback");
-
   rclcpp_action::ResultCode code = result.code;
   std::string code_str;
 
@@ -141,7 +170,7 @@ void ExploreFrontier::resultCallback(
   if (code == rclcpp_action::ResultCode::ABORTED)
   {
     frontier_blacklist_.push_back(frontier_goal);
-    RCLCPP_DEBUG(get_logger(), "Adding current goal to black list");
+    RCLCPP_INFO(get_logger(), "Adding current goal to black list");
   }
 
   oneshot_ = this->create_wall_timer(
@@ -184,7 +213,7 @@ void ExploreFrontier::visualizeFrontiers(
   green.b = 0;
   green.a = 1.0;
 
-  RCLCPP_DEBUG(get_logger(), "visualising %lu frontiers", frontiers.size());
+  RCLCPP_INFO(get_logger(), "visualising %lu frontiers", frontiers.size());
   visualization_msgs::msg::MarkerArray markers_msg;
   std::vector<visualization_msgs::msg::Marker> &markers = markers_msg.markers;
   visualization_msgs::msg::Marker m;
@@ -201,7 +230,7 @@ void ExploreFrontier::visualizeFrontiers(
   m.color.a = 255;
   m.lifetime = rclcpp::Duration(0,0);
   m.frame_locked = true;
-
+  // RCLCPP_INFO(get_logger(), "initialized marker array");
   // weighted frontiers are always sorted
   double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
 
@@ -210,6 +239,7 @@ void ExploreFrontier::visualizeFrontiers(
 
   for(const explore_frontier::Frontier &frontier : frontiers)
   {
+    // RCLCPP_INFO(get_logger(), "fill frontier start");
     m.type = visualization_msgs::msg::Marker::POINTS;
     m.id = id;
     // m.pose.position = {}; // HOW TO HANDLE THIS?
@@ -250,6 +280,7 @@ void ExploreFrontier::visualizeFrontiers(
     }
     markers.push_back(m);
     ++id;
+    // RCLCPP_INFO(get_logger(), "fill frontier end");
   }
 
   size_t current_markers_count = markers.size();
@@ -260,9 +291,10 @@ void ExploreFrontier::visualizeFrontiers(
     m.id = id;
     markers.push_back(m);
   }
-
+  // RCLCPP_INFO(get_logger(), "going to publish frontier");
   last_markers_count_ = current_markers_count;
   marker_array_publisher_->publish(std::move(markers_msg));
+  RCLCPP_INFO(get_logger(), "published frontier");
 }
 
 
@@ -345,28 +377,24 @@ void ExploreFrontier::visualizeFrontierPaths(
 
 void ExploreFrontier::makePlan()
 {
-  RCLCPP_INFO(get_logger(), "inside makePlan");
-
   // Just cancel the oneshot timer in case it triggered the callback
   if(this->oneshot_)
   {
     this->oneshot_->cancel();
   }
-  RCLCPP_INFO(get_logger(), "oneshot canceled");
 
   std::vector<explore_frontier::Frontier>::iterator frontier;
   geometry_msgs::msg::PoseStamped pose;
-  RCLCPP_INFO(get_logger(), "going to get robot pose empty: %s", costmap_client_?"F":"T");
   costmap_client_->getRobotPose(pose);
-  RCLCPP_INFO(get_logger(), "got robot pose");
+  // RCLCPP_INFO(get_logger(), "got robot pose: %f, %f", pose.pose.position.x, pose.pose.position.y);
 
   std::vector<explore_frontier::Frontier> frontiers = 
                                               search_->searchFrom(pose.pose.position);
 
-  RCLCPP_DEBUG(get_logger(), "found %lu frontiers", frontiers.size());
+  RCLCPP_INFO(get_logger(), "found %lu frontiers", frontiers.size());
   for (size_t i = 0; i < frontiers.size(); ++i)
   {
-    RCLCPP_DEBUG(get_logger(), "frontier %zd cost: %f", i, frontiers[i].cost);
+    RCLCPP_INFO(get_logger(), "frontier %zd cost: %f", i, frontiers[i].cost);
   }
 
   if (frontiers.empty())
@@ -406,7 +434,7 @@ void ExploreFrontier::makePlan()
       return;
     }else
     {
-      // RCLCPP_DEBUG_THROTTLE(get_logger(), *clock_, 1000, "-- Empty Frontiers --");
+      // RCLCPP_INFO_THROTTLE(get_logger(), *clock_, 1000, "-- Empty Frontiers --");
     }      
   } else
   {
@@ -435,7 +463,7 @@ void ExploreFrontier::makePlan()
   if (clock_->now() - last_progress_ > *progress_timeout_)
   {
     frontier_blacklist_.push_back(target_position);
-    RCLCPP_DEBUG(get_logger(), "Adding current goal to black list");
+    RCLCPP_INFO(get_logger(), "Adding current goal to black list");
     makePlan();
     return;
   }
