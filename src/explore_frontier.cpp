@@ -124,7 +124,7 @@ nav2_util::CallbackReturn ExploreFrontier::on_activate(
     RCLCPP_INFO(
       get_logger(), "Timed out waiting for transform from %s to %s"
       " to become available, tf error: %s",
-      robot_base_frame_, global_frame_, tf_error.c_str());
+      robot_base_frame_.c_str(), global_frame_.c_str(), tf_error.c_str());
 
     // The error string will accumulate and errors will typically be the same, so the last
     // will do for the warning above. Reset the string here to avoid accumulation
