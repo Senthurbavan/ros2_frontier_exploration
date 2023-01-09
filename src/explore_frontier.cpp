@@ -601,7 +601,7 @@ void ExploreFrontier::stop()
   {
     this->oneshot_->cancel();
   }
-  RCLCPP_INFO(get_logger(), "Exploration stopped");
+  RCLCPP_INFO(get_logger(), "\n\n----------Exploration stopped----------\n\n");
 }
 
 } // namespace explore_frontier
