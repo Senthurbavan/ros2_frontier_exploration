@@ -31,7 +31,6 @@ namespace explore_frontier
       const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
     ~ExploreFrontier();
 
-    void start();
     void stop();
 
   protected:
@@ -46,7 +45,6 @@ namespace explore_frontier
     nav2_util::CallbackReturn on_shutdown(
       const rclcpp_lifecycle::State &state) override;
 
-    void clientTimerCallback();
     void resultCallback( const GoalHandleNavigateToPose::WrappedResult & result,
                         const geometry_msgs::msg::Point& frontier_goal);
     void goalResponseCallback(const GoalHandleNavigateToPose::SharedPtr & goal_handle);
@@ -67,22 +65,13 @@ namespace explore_frontier
     void visualizeFrontierPaths(
         const std::vector<explore_frontier::Frontier>& frontiers);
 
-    // void reachedGoal(const actionlib::SimpleClientGoalState& status,
-    //                 const xavier_msgs::XavierMoveBaseResultConstPtr& result,
-    //                 const geometry_msgs::Point& frontier_goal);
-
     bool goalOnBlacklist(const geometry_msgs::msg::Point& goal);
 
     void returnToDocking();
 
+    std::unique_ptr<Costmap2DClient> costmap_client_{nullptr};
+    std::unique_ptr<FrontierSearch> search_;
 
-
-    /* data */
-    int64_t timer_dur;
-    rclcpp::TimerBase::SharedPtr client_timer_, oneshot_;
-    rclcpp::Clock::SharedPtr clock_;
-
-    // Transform Listener
     // Transform listener
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -94,28 +83,27 @@ namespace explore_frontier
       ::SharedPtr f_path_publisher_;
 
     // Action client
-    rclcpp::CallbackGroup::SharedPtr callback_group_, timer_callback_group_;
-    rclcpp::executors::SingleThreadedExecutor callback_group_executor_, 
-      timer_callback_group_executor_;
+    rclcpp::CallbackGroup::SharedPtr callback_group_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav_to_pose_client_;
     std::shared_future<rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr> 
       future_goal_handle_;
-
-    // Costmap2DClient costmap_client_;
-    // explore_frontier::FrontierSearch search_;
-
-    std::unique_ptr<Costmap2DClient> costmap_client_{nullptr};
-    std::unique_ptr<FrontierSearch> search_;
-
+    
+    // Data
+    std::string global_frame_;      ///< @brief The global frame for the costmap
+    std::string robot_base_frame_;  ///< @brief The frame_id of the robot base
+    int64_t explore_period_;
+    rclcpp::TimerBase::SharedPtr client_timer_, oneshot_;
+    rclcpp::Clock::SharedPtr clock_;
+    std::shared_ptr<rclcpp::Duration> terminate_timeout_, progress_timeout_;
+    rclcpp::Time last_nonempty_frontier_, last_progress_;
+    double docking_x_, docking_y_;
     std::vector<geometry_msgs::msg::Point> frontier_blacklist_;
     geometry_msgs::msg::Point prev_goal_;
     double prev_distance_;
 
     // Visualization
     size_t last_markers_count_, last_path_count_;
-
-    std::shared_ptr<rclcpp::Duration> terminate_timeout_, progress_timeout_;
-    rclcpp::Time last_nonempty_frontier_, last_progress_;
+    bool visualize_;
 
   };
 

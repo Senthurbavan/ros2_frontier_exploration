@@ -56,22 +56,14 @@ Costmap2DClient::Costmap2DClient(
   auto node = parent.lock();
   logger_ = node->get_logger();
 
-  node->declare_parameter("costmap_topic", rclcpp::ParameterValue("/global_costmap/costmap"));
   node->get_parameter("costmap_topic", costmap_topic_);
-
-  node->declare_parameter("costmap_updates_topic", 
-                          rclcpp::ParameterValue("/global_costmap/costmap_updates"));
   node->get_parameter("costmap_updates_topic", costmap_updates_topic_);
-
-  node->declare_parameter("robot_base_frame", rclcpp::ParameterValue("base_footprint"));
   node->get_parameter("robot_base_frame", robot_base_frame_);
-
-  node->declare_parameter("global_frame", rclcpp::ParameterValue("map"));
   node->get_parameter("global_frame", global_frame_);
-
-  node->declare_parameter("transform_tolerance", rclcpp::ParameterValue(0.2));
   node->get_parameter("transform_tolerance", transform_tolerance_);
 
+  RCLCPP_INFO(logger_, "costmap_topic: %s", costmap_topic_.c_str());
+  RCLCPP_INFO(logger_, "costmap_updates_topic: %s", costmap_updates_topic_.c_str());
   RCLCPP_INFO(logger_, "global_frame: %s", global_frame_.c_str());
   RCLCPP_INFO(logger_, "robot_base_frame: %s", robot_base_frame_.c_str());
   RCLCPP_INFO(logger_, "transform tolerence: %f", transform_tolerance_);
@@ -102,8 +94,6 @@ void Costmap2DClient::updateFullMap(const nav_msgs::msg::OccupancyGrid::ConstSha
   double origin_x = msg->info.origin.position.x;
   double origin_y = msg->info.origin.position.y;
 
-  // RCLCPP_INFO(logger_, "\n\n####received full new map, resizing to: %d, %d\n\n", size_in_cells_x,
-  //           size_in_cells_y);
   costmap_.resizeMap(size_in_cells_x, size_in_cells_y, resolution, origin_x,
                       origin_y);
 
@@ -114,19 +104,21 @@ void Costmap2DClient::updateFullMap(const nav_msgs::msg::OccupancyGrid::ConstSha
   // fill map with data
   unsigned char *costmap_data = costmap_.getCharMap();
   size_t costmap_size = costmap_.getSizeInCellsX() * costmap_.getSizeInCellsY();
+  
   RCLCPP_INFO(logger_, "full map update, %lu values", costmap_size);
+  
   for (size_t i = 0; i < costmap_size && i < msg->data.size(); ++i)
   {
     unsigned char cell_cost = static_cast<unsigned char>(msg->data[i]);
     costmap_data[i] = cost_translation_table__[cell_cost];
   }
+  
   RCLCPP_INFO(logger_, "map updated, written %lu values", costmap_size);
 }
 
 void Costmap2DClient::updatePartialMap(
       const map_msgs::msg::OccupancyGridUpdate::ConstSharedPtr &msg)
 {
-  // RCLCPP_INFO(logger_, "\n\n######received partial map update\n\n");
   global_frame_ = msg->header.frame_id;
 
   if (msg->x < 0 || msg->y < 0)
@@ -175,7 +167,6 @@ void Costmap2DClient::updatePartialMap(
 
 bool Costmap2DClient::getRobotPose(geometry_msgs::msg::PoseStamped global_pose) const
 {
-  // RCLCPP_INFO(logger_, "inside getRobotPose");
   return nav2_util::getCurrentPose(
     global_pose, *tf_buffer_, global_frame_, robot_base_frame_, transform_tolerance_);  
 }

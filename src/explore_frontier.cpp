@@ -8,7 +8,21 @@ ExploreFrontier::ExploreFrontier(const rclcpp::NodeOptions &options)
     // costmap_client_(shared_from_this()
 {
   RCLCPP_INFO(get_logger(), "\n -- Creating -- \n");
-  declare_parameter("timer_duration", 5);
+
+  declare_parameter("explore_period", 1);
+  declare_parameter("progress_timeout", 30.0);
+  declare_parameter("terminate_timeout", 30.0);
+  declare_parameter("visualize", false);
+  declare_parameter("potential_scale", 1.0);
+  declare_parameter("gain_scale", 1.0);
+  declare_parameter("min_frontier_size", 0.75);
+  declare_parameter("docking_x", 0.0);
+  declare_parameter("docking_y", 0.0);
+  declare_parameter("costmap_topic", "/costmap");
+  declare_parameter("costmap_updates_topic", "/costmap_updates");
+  declare_parameter("robot_base_frame", "base_footprint");
+  declare_parameter("global_frame", "map");
+  declare_parameter("transform_tolerance", 0.2);
 }
 
 
@@ -23,14 +37,39 @@ nav2_util::CallbackReturn ExploreFrontier::on_configure(
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
 
   clock_ = this->get_clock();
+  double terminate_timeout_dur, progress_timeout_dur;
+  double potential_scale, gain_scale, min_frontier_size;
 
-  this->timer_dur = get_parameter("timer_duration").as_int();
+  get_parameter("explore_period", explore_period_);
+  get_parameter("progress_timeout", progress_timeout_dur);
+  get_parameter("terminate_timeout", terminate_timeout_dur);
+  get_parameter("visualize", visualize_);
+  get_parameter("potential_scale", potential_scale);
+  get_parameter("gain_scale", gain_scale);
+  get_parameter("min_frontier_size", min_frontier_size);
+  get_parameter("docking_x", docking_x_);
+  get_parameter("docking_y", docking_y_);
+  get_parameter("robot_base_frame", robot_base_frame_);
+  get_parameter("global_frame", global_frame_);
+
+  RCLCPP_INFO(get_logger(), "-----Printing Parameters----");
+  RCLCPP_INFO(get_logger(), "explore_period: %ld", explore_period_);
+  RCLCPP_INFO(get_logger(), "progress_timeout: %f", progress_timeout_dur);
+  RCLCPP_INFO(get_logger(), "terminate_timeout: %f", terminate_timeout_dur);
+  RCLCPP_INFO(get_logger(), "visualize: %s", visualize_?"True":"False");
+  RCLCPP_INFO(get_logger(), "potential_scale: %f", potential_scale);
+  RCLCPP_INFO(get_logger(), "gain_scale: %f", gain_scale);
+  RCLCPP_INFO(get_logger(), "min_frontier_size: %f", min_frontier_size);
+  RCLCPP_INFO(get_logger(), "docking_x: %f", docking_x_);
+  RCLCPP_INFO(get_logger(), "docking_y: %f", docking_y_);
+  RCLCPP_INFO(get_logger(), "robot_base_frame: %s", robot_base_frame_.c_str());
+  RCLCPP_INFO(get_logger(), "global_frame: %s", global_frame_.c_str());
 
   terminate_timeout_ = std::make_shared<rclcpp::Duration>(
-    rclcpp::Duration::from_seconds(30));
+    rclcpp::Duration::from_seconds(terminate_timeout_dur));
 
   progress_timeout_ = std::make_shared<rclcpp::Duration>(
-    rclcpp::Duration::from_seconds(30));
+    rclcpp::Duration::from_seconds(progress_timeout_dur));
 
   // Create the transform-related objects
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
@@ -55,7 +94,7 @@ nav2_util::CallbackReturn ExploreFrontier::on_configure(
   );
   costmap_client_ = std::make_unique<Costmap2DClient>(shared_from_this(), tf_buffer_);
   search_ = std::make_unique<FrontierSearch>(shared_from_this(),
-    costmap_client_->getCostmap(), 1.0, 1.0, 0.75);
+    costmap_client_->getCostmap(), potential_scale, gain_scale, min_frontier_size);
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -80,12 +119,12 @@ nav2_util::CallbackReturn ExploreFrontier::on_activate(
   rclcpp::Rate r(2);
   while (rclcpp::ok() & 
     !tf_buffer_->canTransform(
-      "map", "base_footprint", tf2::TimePointZero, &tf_error))
+      global_frame_, robot_base_frame_, tf2::TimePointZero, &tf_error))
   {
     RCLCPP_INFO(
       get_logger(), "Timed out waiting for transform from %s to %s"
       " to become available, tf error: %s",
-      "base_footprint", "map", tf_error.c_str());
+      robot_base_frame_, global_frame_, tf_error.c_str());
 
     // The error string will accumulate and errors will typically be the same, so the last
     // will do for the warning above. Reset the string here to avoid accumulation
@@ -95,7 +134,7 @@ nav2_util::CallbackReturn ExploreFrontier::on_activate(
   
 
   this->client_timer_ = create_wall_timer(
-    std::chrono::seconds(this->timer_dur), 
+    std::chrono::seconds(this->explore_period_), 
     std::bind(&ExploreFrontier::makePlan, this)/*, timer_callback_group_*/
   );
 
@@ -230,7 +269,7 @@ void ExploreFrontier::visualizeFrontiers(
   m.color.a = 255;
   m.lifetime = rclcpp::Duration(0,0);
   m.frame_locked = true;
-  // RCLCPP_INFO(get_logger(), "initialized marker array");
+
   // weighted frontiers are always sorted
   double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
 
@@ -239,7 +278,6 @@ void ExploreFrontier::visualizeFrontiers(
 
   for(const explore_frontier::Frontier &frontier : frontiers)
   {
-    // RCLCPP_INFO(get_logger(), "fill frontier start");
     m.type = visualization_msgs::msg::Marker::POINTS;
     m.id = id;
     // m.pose.position = {}; // HOW TO HANDLE THIS?
@@ -280,7 +318,6 @@ void ExploreFrontier::visualizeFrontiers(
     }
     markers.push_back(m);
     ++id;
-    // RCLCPP_INFO(get_logger(), "fill frontier end");
   }
 
   size_t current_markers_count = markers.size();
@@ -386,7 +423,6 @@ void ExploreFrontier::makePlan()
   std::vector<explore_frontier::Frontier>::iterator frontier;
   geometry_msgs::msg::PoseStamped pose;
   costmap_client_->getRobotPose(pose);
-  // RCLCPP_INFO(get_logger(), "got robot pose: %f, %f", pose.pose.position.x, pose.pose.position.y);
 
   std::vector<explore_frontier::Frontier> frontiers = 
                                               search_->searchFrom(pose.pose.position);
@@ -399,9 +435,10 @@ void ExploreFrontier::makePlan()
 
   if (frontiers.empty())
   {
+    RCLCPP_INFO(get_logger(), "No frontiers to pursue");
     stop();
     // Erase everything
-    if (true)
+    if (visualize_)
     {
       visualizeFrontiers(frontiers, *frontier);
       // visualizeFrontierPaths(frontiers);
@@ -422,10 +459,11 @@ void ExploreFrontier::makePlan()
   {
     if((clock_->now() - last_nonempty_frontier_ > *terminate_timeout_))
     {
+      RCLCPP_INFO(get_logger(), "Terminate timeout reached");
       stop();
       frontiers.clear();
       // Erase everything
-      if (true)
+      if (visualize_)
       {
         visualizeFrontiers(frontiers, *frontier);
         // visualizeFrontierPaths(frontiers);
@@ -442,7 +480,7 @@ void ExploreFrontier::makePlan()
   }
 
   // publish frontiers as visualization markers
-  if (true)
+  if (visualize_)
   {
     visualizeFrontiers(frontiers, *frontier);
     // visualizeFrontierPaths(frontiers);
@@ -475,7 +513,7 @@ void ExploreFrontier::makePlan()
   }
 
   NavigateToPose::Goal client_goal;
-  client_goal.pose.header.frame_id = "map";
+  client_goal.pose.header.frame_id = global_frame_;
 
   client_goal.pose.pose.position.x = target_position.x;
   client_goal.pose.pose.position.y = target_position.y;
@@ -501,49 +539,6 @@ void ExploreFrontier::makePlan()
   RCLCPP_INFO(get_logger(), "makePlan: Goal sent to the server");
 }
 
-
-void ExploreFrontier::clientTimerCallback()
-{
-  RCLCPP_INFO(get_logger(), "timer callback");
-  
-  if(oneshot_)
-  {
-    this->oneshot_->cancel();
-  }
-
-  NavigateToPose::Goal client_goal;
-  geometry_msgs::msg::Point target_position;
-
-  client_goal.pose.header.frame_id = "map";
-
-  client_goal.pose.pose.position.x = 0.32;
-  client_goal.pose.pose.position.y = -0.55;
-  client_goal.pose.pose.position.z = 0.0;
-
-  client_goal.pose.pose.orientation.w = 1.0;
-  client_goal.pose.pose.orientation.x = 0.0;
-  client_goal.pose.pose.orientation.y = 0.0;
-  client_goal.pose.pose.orientation.z = 0.0;
-
-  auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
-  // send_goal_options.result_callback = std::bind(
-  //   &ExploreFrontier::resultCallback, this, std::placeholders::_1
-  // );
-  send_goal_options.result_callback = [this,target_position](
-      const GoalHandleNavigateToPose::WrappedResult & result)
-      {
-        resultCallback(result, target_position);
-      };
-  send_goal_options.goal_response_callback = std::bind(
-    &ExploreFrontier::goalResponseCallback, this, std::placeholders::_1
-  );
-  future_goal_handle_ = nav_to_pose_client_->async_send_goal(client_goal, 
-                                                              send_goal_options);
-  
-  RCLCPP_INFO(get_logger(), "Goal sent to the server");
-}
-
-
 bool ExploreFrontier::goalOnBlacklist(const geometry_msgs::msg::Point &goal)
 {
   int tolerance = 5;
@@ -563,9 +558,6 @@ bool ExploreFrontier::goalOnBlacklist(const geometry_msgs::msg::Point &goal)
 
 void ExploreFrontier::stop()
 {
-  // actionClient.cancelAllGoals();
-  // exploring_timer_.stop();
-  // ROS_INFO("Exploration stopped.");
   this->nav_to_pose_client_->async_cancel_all_goals();
   this->client_timer_->cancel();
   if(this->oneshot_)
